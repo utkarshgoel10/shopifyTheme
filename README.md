@@ -1,1 +1,1 @@
-# Shopify-OS_Store
+# Shopify OS_Store

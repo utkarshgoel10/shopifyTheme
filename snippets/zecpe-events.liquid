@@ -1,0 +1,18 @@
+<script>
+let zecpeEvents = ["checkout_initiated_zecpe"];
+zecpeEvents.forEach((eventName) => {
+    window.addEventListener(eventName, (e) => {
+        let closeDrawer = document.querySelector(".drawer__close");
+        if (closeDrawer) {
+            closeDrawer.click();
+        }
+        try {
+          console.log("Loaded Zecpe");
+          document.querySelector("#occ-otp-heading").style = "font-size: 16px !important";
+          document.querySelector("#occ-otp-heading").innerHTML = "Login to get <span style='color: green;'><b>5% off</b></span> on prepaid orders 🎉!";
+        } catch (ignErr) {
+          console.log(ignErr);
+        }
+    })
+})
+</script>

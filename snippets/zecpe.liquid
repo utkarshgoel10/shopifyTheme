@@ -1,0 +1,482 @@
+<script>
+window.RetrieveCart = async () => {
+    let cartItems = JSON.parse(localStorage.getItem("occ-old-cart"));
+    await fetch(`${window.location.origin}/cart/clear.js`, {
+        method: "POST",
+    });
+    if (cartItems && cartItems.items) {
+        let data = {
+            items: cartItems.items
+        }
+        if (data.items && data.items.length) {
+            fetch(`${window.location.origin}/cart/add.js`, {
+                method: "POST",
+                body: JSON.stringify(
+                    data
+                ),
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+            })
+        }
+    }
+}
+window.handleAbandonedRedirect = async (productsArray) => {
+    try {
+        productsArray = productsArray.filter((product) =>
+            product.id &&
+            product.quantity &&
+            typeof product.id === "number" &&
+            typeof product.quantity === "number")
+        if (
+            productsArray.length > 0
+        ) {
+            window.addEventListener('DOMContentLoaded', (event) => {
+                if (!document.getElementById("zecpe-overlay")) {
+                    let zecpeOverlay = document.createElement("div");
+                    zecpeOverlay.setAttribute("id", "zecpe-overlay");
+                    zecpeOverlay.innerHTML = `
+                   <div style="text-align : center">
+                   <div id="occ-payment-loader-container">
+                   <div id="occ-payment-loader">&nbsp;</div>
+                   </div>
+                     <br />
+                     <p style="font-size: 18px; color : #000">Please wait while we fetch your cart.</p>
+                 </div>`;
+                    document.body.appendChild(zecpeOverlay);
+                    document.body.style.overFlow = "hidden";
+                }
+            })
+
+
+            let cart = await fetch(`${window.location.origin}/cart.js`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+
+            cart = await cart.json();
+            localStorage.setItem("occ-old-cart", JSON.stringify(cart));
+            await fetch(`${window.location.origin}/cart/clear.js`, {
+                method: "POST",
+            });
+            let cartSaveResponse = await fetch(
+                `${window.location.origin}/cart/add.js`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        items: productsArray
+                    }),
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+            cartSaveResponse = await cartSaveResponse.json();
+            if (cartSaveResponse && cartSaveResponse.items?.length)
+                handleOcc(null, true);
+            else throw new Error("Inavalid cart details");
+        }
+    } catch (err) {
+        RetrieveCart();
+        document.body.style.overFlow = "auto";
+        if (document.getElementById("zecpe-overlay")) {
+            document.getElementById("zecpe-overlay").remove();
+        }
+    }
+};
+try {
+    let self = window.location.toString();
+    let querystring = self.split("?");
+    let utmParameters = new Object;
+    let productsArray;
+    let initiatedByZecpe = false;
+    let zecpeAcceptedParams = ["utm_source", "utm_campaign", "utm_medium", "utm_content", "utm_term", "fbclid", "gclid", "products", "initiated_by"]
+    if (querystring.length > 1) {
+        let pairs = querystring[1].split("&");
+        for (let i in pairs) {
+            let pair = pairs[i];
+            let keyval = pairs[i].split("=");
+            if (zecpeAcceptedParams.includes(keyval[0])) {
+                if (keyval[0] === "products") {
+                    productsArray = keyval[1].split(",")?.map((product) => {
+                        if (product && product.split(":") && product.split(":").length == 2) {
+                            let [id, quantity] = product.split(":");
+                            return {
+                                id: parseInt(id),
+                                quantity: parseInt(quantity),
+                            };
+                        }
+                        return {};
+
+                    })
+                } else if (keyval[0] === "initiated_by" && keyval[1] === 'zecpe') {
+                    initiatedByZecpe = true;
+                } else if (keyval[0].startsWith("utm"))
+                    keyval[0] = keyval[0].split("_")[1];
+                utmParameters[keyval[0]] = decodeURIComponent(keyval[1]);
+            }
+        }
+    }
+    if (initiatedByZecpe && productsArray && productsArray.length)
+        handleAbandonedRedirect(productsArray);
+    if (Object.keys(utmParameters).length !== 0) {
+        let utmParmsObject = new Object;
+        utmParmsObject.params = utmParameters;
+        utmParmsObject.date = new Date();
+        localStorage.setItem("occ-utm", JSON.stringify(utmParmsObject));
+    }
+} catch (err) {
+    console.log(err);
+}
+    
+
+window.handleOcc = async(element = false, retriveCartBoolean = false) => {
+         try {
+           let tag;
+          if(element && element.children)
+          {
+            if(Array.from(element.children).length === 2){
+          Array.from(element.children)[0].style.display = "grid";
+            Array.from(element.children)[1].style.display = "none";
+            }
+            element.disabled = true;
+            element.style.cursor = "not-allowed";
+          }  
+          let  utmParmsObject =  JSON.parse(localStorage.getItem("occ-utm"));
+          // let pp699 = utmParmsObject?.params?.source?.toLowerCase() == "partner" && utmParmsObject?.params?.medium?.toLowerCase() == "phonepe" && utmParmsObject?.params?.campaign?.toLowerCase() == "pp699"
+          // let pp1099 = utmParmsObject?.params?.source?.toLowerCase() == "partners" && utmParmsObject?.params?.medium?.toLowerCase() == "phonepe" && utmParmsObject?.params?.campaign?.toLowerCase() == "4 nuts at 1099"
+          // let pp476 = utmParmsObject?.params?.source?.toLowerCase() == "partners" && utmParmsObject?.params?.medium?.toLowerCase() == "phonepe" && utmParmsObject?.params?.campaign?.toLowerCase() == "4 nuts at rs476 off"
+          // let adYogiIg = utmParmsObject?.params?.source?.toLowerCase() == "adyogi" && utmParmsObject?.params?.medium?.toLowerCase() == "ig" && utmParmsObject?.params?.campaign?.toLowerCase() == "adv plus 2- weight loss"
+          // let fbWeightLoss = utmParmsObject?.params?.source?.toLowerCase() == "adyogi" && utmParmsObject?.params?.medium?.toLowerCase() == "fb" && utmParmsObject?.params?.campaign?.toLowerCase() == {% raw %}"{{adv plus 2- weight loss}}}"{% endraw %}
+          // let igWeightLoss = utmParmsObject?.params?.source?.toLowerCase() == "adyogi" && utmParmsObject?.params?.medium?.toLowerCase() == "ig" && utmParmsObject?.params?.campaign?.toLowerCase() == {% raw %}"{{adv plus 2- weight loss}}}"{% endraw %}
+          // let paytm = utmParmsObject?.params?.source?.toLowerCase() == "d2c" && utmParmsObject?.params?.medium?.toLowerCase() == "paytm" && utmParmsObject?.params?.campaign?.toLowerCase() == "paytm50"
+          // let credOs30 = utmParmsObject?.params?.source?.toLowerCase() == "partners" && utmParmsObject?.params?.medium?.toLowerCase() == "cred pay" && utmParmsObject?.params?.campaign?.toLowerCase() == "credos30"
+          // let cred25off = utmParmsObject?.params?.source?.toLowerCase() == "partners" && utmParmsObject?.params?.medium?.toLowerCase() == "cred pay" && utmParmsObject?.params?.campaign?.toLowerCase() == "25% off"
+          // let cred25offMR = utmParmsObject?.params?.source?.toLowerCase() == "partners" && utmParmsObject?.params?.medium?.toLowerCase() == "cred pay" && utmParmsObject?.params?.campaign?.toLowerCase() == "25% mystery rewards"
+          // let test123 = utmParmsObject?.params?.source?.toLowerCase() == "test1" && utmParmsObject?.params?.medium?.toLowerCase() == "test2" && utmParmsObject?.params?.campaign?.toLowerCase() == "test3"
+          // if (!pp699 && !pp1099 && !pp476 && !fbWeightLoss && !igWeightLoss && !adYogiIg)
+          // if (test123)
+          {% if customer %}
+          // {
+            window.location.href = "/cart/checkout";
+            return;
+          // }
+         {% endif %}
+           if (!window.Zecpe)
+             window.Zecpe = {};
+           window.Zecpe.tagsMapper = {};
+           let cartItem, productTag, product;
+           let productTags = [], shopifyItem;
+           {% for item in cart.items %}
+           shopifyItem = {{ item | json }};
+           Zecpe.tagsMapper[shopifyItem.product_id] = [];
+           {% for tag in item.product.tags %}
+           tag = {{ tag | json }};
+           Zecpe.tagsMapper[shopifyItem.product_id].push(tag);
+           {% endfor %}
+           {% endfor %}
+           let scriptLoaded = false;
+           for (let i = 0; i < 3; i++) {
+             let res
+             try {
+               res = await LoadOccScript(retriveCartBoolean);
+             } catch (err) {
+               console.log(err);
+               continue;
+             }
+             if (res && res.message === "Success") {
+               scriptLoaded = true;
+               break;
+             }
+           }
+           if (!scriptLoaded)
+           {
+             console.log("Zecpe :: Script not loaded after 3 retries");
+             window.location.href = "/cart/checkout";
+           }
+         }
+       catch (err) {
+         console.log(`Zecpe error: `, err.message);
+         window.location.href = "/cart/checkout";
+       }
+ }
+window.convertToObject =(obj)=> {
+  let newObj = {};
+  for (let key in obj) {
+    if (key.includes("[") && key.includes("]")) {
+      let keyName = key.split("[")[0];
+      let keyValue = key.split("[")[1].split("]")[0];
+      if (keyName in newObj) {
+        newObj[keyName][keyValue] = obj[key];
+      } else {
+        newObj[keyName] = new Object();
+        newObj[keyName][keyValue] = obj[key];
+      }
+    } else {
+      newObj[key] = obj[key];
+    }
+  }
+  return newObj;
+}
+
+window.HandleBuyNowZecpe = async (element, formElement = null) => {
+    try {
+        if (element && element.children) {
+            if (Array.from(element.children).length === 2) {
+                Array.from(element.children)[0].style.display = "grid";
+                Array.from(element.children)[1].style.display = "none";
+            }
+            element.disabled = true;
+            element.style.cursor = "not-allowed";
+        }
+        let cart = await fetch(`${window.location.origin}/cart.js`, {
+            method: "GET",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+        });
+        cart = await cart.json();
+        localStorage.setItem("occ-old-cart", JSON.stringify(cart));
+        let productForm = formElement || document.querySelector('form[action$="/cart/add"]');
+        if (productForm) {
+            const formEntries = new FormData(productForm).entries();
+            let formObject = new Object();
+            if (formEntries) {
+                for (let entry of formEntries)
+                    formObject[entry[0]] = entry[1];
+                await fetch(`${window.location.origin}/cart/clear.js`, {
+                    method: "POST",
+                });
+                formObject = convertToObject(formObject);
+                await fetch(`${window.location.origin}/cart/add.js`, {
+                    method: "POST",
+                    body: JSON.stringify(
+                        formObject
+                    ),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                })
+                handleOcc(null, true);
+            }
+        }
+    } catch (err) {
+        console.log(err);
+        window.location.href = "/cart/checkout";
+    }
+}
+
+window.LoadOccScript = async (retriveCartBoolean = false) =>
+    new Promise(async (resolve, reject) => {
+        try {
+            if(!Shopify || !Shopify.shop)
+            {
+              window.Shopify = {
+                  ...window.Shopify,
+                  shop : {{shop.permanent_domain | json}}
+                }
+            }
+            const promiseArray = [
+                fetch(`${window.location.origin}/cart.js`),
+                fetch(`
+            https://api-v1.zecpe.com/api/stores/theme/${
+              window.Shopify && window.Shopify.shop
+            }`),
+            ];
+            let [cart, theme] = await Promise.allSettled(promiseArray);
+            if (retriveCartBoolean) RetrieveCart();
+            if (theme && theme.status === "fulfilled") {
+                theme = await theme.value.json();
+                if (theme.data && theme.data.result)
+                    localStorage.setItem("occ-theme", JSON.stringify(theme.data.result));
+            }
+            if (cart && cart.status === "fulfilled") {
+
+                let data = await cart.value.json();
+                if (!window.Zecpe) window.Zecpe = {};
+                window.Zecpe.cart = data;
+                for (let i = 0; i < window.Zecpe.cart.items.length; i++) {
+                    let cartItem = window.Zecpe.cart.items[i];
+                    if (
+                        window.Zecpe.tagsMapper[cartItem.product_id] &&
+                        window.Zecpe.tagsMapper[cartItem.product_id].length
+                    ) {
+                        cartItem.tags = window.Zecpe.tagsMapper[cartItem.product_id];
+                    }
+                }
+                if (!window.Zecpe.cart.items || !window.Zecpe.cart.items.length)
+                    window.location.reload();
+                localStorage.setItem("occ-cart", JSON.stringify(window.Zecpe.cart));
+                const scripts = document.querySelectorAll("script");
+                const script = Array.from(scripts).find(
+                    (script) =>
+                    script.src &&
+                    script.src.includes(
+                        "https://cdn.zecpe.com/payModal/script.js"
+                    )
+                );
+                if (!script) {
+                    let script = document.createElement("script");
+                    script.src =
+                        "https://cdn.zecpe.com/payModal/script.js";
+                    document.head.appendChild(script);
+                    script.addEventListener("load", () => {
+                        Occ.RunScript();
+                        return resolve({
+                            message: "Success"
+                        });
+                    });
+                } else {
+                    Occ.RunScript();
+                    return resolve({
+                        message: "Success"
+                    });
+                }
+            } else {
+                reject(new Error("Error in loading script"))
+            }
+        } catch (err) {
+            reject(err);
+        }
+    })
+ 
+</script>
+<style>
+   #occ-payment-loader {
+  width: 40px;
+  height: 40px;
+  margin: auto !important;
+  color: #591651 !important;
+  background: linear-gradient(currentColor 0 0),
+    linear-gradient(currentColor 0 0), linear-gradient(currentColor 0 0),
+    linear-gradient(currentColor 0 0);
+  background-size: 21px 21px;
+  background-repeat: no-repeat;
+  animation: sh5 1.5s infinite cubic-bezier(0.3, 1, 0, 1);
+}
+@keyframes sh5 {
+  0% {
+    background-position: 0 0, 100% 0, 100% 100%, 0 100%;
+  }
+  33% {
+    background-position: 0 0, 100% 0, 100% 100%, 0 100%;
+    width: 60px;
+    height: 60px;
+  }
+  66% {
+    background-position: 100% 0, 100% 100%, 0 100%, 0 0;
+    width: 60px;
+    height: 60px;
+  }
+  100% {
+    background-position: 100% 0, 100% 100%, 0 100%, 0 0;
+  }
+}
+
+#occ-payment-loader-container {
+  min-height: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+}
+  #zecpe-overlay{
+  display: grid;
+  position: fixed;
+  top: 0;
+  place-items: center;
+  left: 0;
+  z-index: 99999999999999;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  background: #fff;
+  }
+
+   #zecpe-btn-text{
+    line-height :18px;
+    text-align:left;
+  }
+
+  #zecpe-btn-header{
+  font-weight : 600;
+  }
+   #zecpe-btn-desc{
+    font-weight : 600;
+    font-size : 11px;   
+  }
+  #zecpe-arrow-icon{
+  	display : inline
+  }
+ 
+  .zecpe-buy-now{
+    background : #000;
+    width : 100%; 
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3em;
+    font-size : 13px;
+    font-family : Montserrat, sans-serif; 
+    color : #fff; height : 46px; 
+    max-height : 46px;
+    position : relative;
+  }
+.lds-ring {
+  display: none;
+/*   position: relative; */
+  width: 100%;
+  height: 30px;
+  place-items : center;
+  text-align : center;
+  max-height : 100%;
+}
+.lds-ring div {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin: 3px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  border-color: #fff transparent transparent transparent;
+}
+.lds-ring div:nth-child(1) {
+  animation-delay: -0.45s;
+}
+.lds-ring div:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.lds-ring div:nth-child(3) {
+  animation-delay: -0.15s;
+}
+@keyframes lds-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+@media only screen and (max-width: 768px) {
+  .zecpe-buy-now {
+   font-size : 11px;
+  }
+  #zecpe-btn-header{
+   font-size : 14px
+  }
+  #zecpe-arrow-icon{
+  	display : none
+  }
+  #zecpe-btn-text{
+  font-size : 14px;
+  }
+  #zecpe-btn-desc{
+  font-size : 7px;
+  }
+}
+
+</style>
+

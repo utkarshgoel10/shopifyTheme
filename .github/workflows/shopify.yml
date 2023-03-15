@@ -1,0 +1,19 @@
+name: Create Shopify Theme
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  create_theme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install Shopify Theme Kit
+        run: |
+          curl -s https://raw.githubusercontent.com/Shopify/themekit/master/scripts/install | sudo python
+      - name: Create Shopify Theme
+        run: |
+          theme new --password=[c3cb5eaef45389b4b95d526656015aa8]:[0ab891df558c400923025b695894bfd6] --store=[open-secret-dev].myshopify.com --name="New Theme"
